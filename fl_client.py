@@ -13,7 +13,7 @@ from torchvision import datasets, transforms
 import os
 import copy
 
-from model_architecture import MobileNetV2
+from model_architecture import build_model
 import config
 
 
@@ -26,9 +26,14 @@ class FederatedClient:
         # Load local dataset
         self.load_local_data()
         
-        # Initialize local model
-        self.local_model = MobileNetV2(num_classes=config.NUM_CLASSES).to(self.device)
-        print("Local model initialized")
+        # Initialize local model (Ensemble)
+        print("\nInitializing local ensemble model...")
+        self.local_model = build_model(
+            num_classes=config.NUM_CLASSES, 
+            pretrained=True, 
+            device=self.device.type
+        ).to(self.device)
+        print("✓ Local ensemble model initialized")
     
     def load_local_data(self):
         """Load client's local dataset"""
@@ -133,11 +138,11 @@ class FederatedClient:
         print(f"\nTraining on local data for {config.NUM_LOCAL_EPOCHS} epochs...")
         
         self.local_model.train()
-        criterion = nn.CrossEntropyLoss()
-        optimizer = optim.SGD(
+        criterion = nn.CrossEntropyLoss(label_smoothing=0.05)  # Add label smoothing
+        optimizer = optim.AdamW(
             self.local_model.parameters(), 
             lr=config.LEARNING_RATE, 
-            momentum=config.MOMENTUM
+            weight_decay=1e-4
         )
         
         for epoch in range(config.NUM_LOCAL_EPOCHS):

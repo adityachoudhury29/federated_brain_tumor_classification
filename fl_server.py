@@ -14,7 +14,7 @@ import copy
 import numpy as np
 from datetime import datetime
 
-from model_architecture import MobileNetV2
+from model_architecture import build_model
 import config
 
 
@@ -23,9 +23,14 @@ class FederatedServer:
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         print(f"Server using device: {self.device}")
         
-        # Initialize global model
-        self.global_model = MobileNetV2(num_classes=config.NUM_CLASSES).to(self.device)
-        print("Global model initialized")
+        # Initialize global model (Ensemble)
+        print("\nInitializing global ensemble model...")
+        self.global_model = build_model(
+            num_classes=config.NUM_CLASSES, 
+            pretrained=True, 
+            device=self.device.type
+        ).to(self.device)
+        print("✓ Global ensemble model initialized")
         
         # Create model save directory
         os.makedirs(config.SERVER_MODEL_SAVE_PATH, exist_ok=True)

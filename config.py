@@ -26,9 +26,9 @@ MIN_CLIENTS = 2  # Minimum clients needed to start a round
 # MODEL TRAINING PARAMETERS
 # ========================
 NUM_LOCAL_EPOCHS = 5  # Local training epochs per client per FL round
-BATCH_SIZE = 32
-LEARNING_RATE = 0.01
-MOMENTUM = 0.9
+BATCH_SIZE = 16  # Reduced for larger ensemble model (adjust based on GPU memory)
+LEARNING_RATE = 3e-5  # Lower learning rate for fine-tuning pre-trained models
+MOMENTUM = 0.9  # Not used with AdamW optimizer
 NUM_CLASSES = 4
 
 # ========================
