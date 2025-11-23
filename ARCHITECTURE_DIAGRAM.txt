@@ -16,8 +16,12 @@ STEP 1: SERVER INITIALIZATION
 │  Port: 8080                                        │
 │                                                    │
 │  ┌──────────────────────────────────────────┐    │
-│  │   Initialize Global MobileNetV2 Model    │    │
-│  │   Parameters: ~2.2M                      │    │
+│  │   Initialize Global Ensemble Model       │    │
+│  │   - Swin Transformer Small: 49M params   │    │
+│  │   - DeiT Base Distilled: 87M params      │    │
+│  │   - ConvNeXt Small: 50M params           │    │
+│  │   Total Parameters: ~187M                │    │
+│  │   Model Size: ~750 MB                    │    │
 │  │   Classes: 4 (tumor types)               │    │
 │  └──────────────────────────────────────────┘    │
 │                                                    │
@@ -58,7 +62,7 @@ STEP 3: MODEL DISTRIBUTION (Server → Clients)
 │  SERVER                                            │
 │                                                    │
 │  Serializing global model weights...              │
-│  Size: ~8.7 MB                                     │
+│  Size: ~750 MB (Ensemble Model)                   │
 └────────────────────────────────────────────────────┘
               │
               │ Network Transfer (pickle + socket)
@@ -107,7 +111,7 @@ STEP 5: WEIGHT UPLOAD (Clients → Server)
      │ CLIENT 1        │                │ CLIENT 2        │
      │                 │                │                 │
      │ Uploading...    │                │ Uploading...    │
-     │ Size: ~8.7 MB   │                │ Size: ~8.7 MB   │
+     │ Size: ~750 MB   │                │ Size: ~750 MB   │
      └─────────────────┘                └─────────────────┘
               │                                    │
               │ Network Transfer                   │
@@ -288,23 +292,29 @@ KEY METRICS
 ═══════════
 
 Model:
-- Architecture: MobileNetV2
-- Parameters: ~2.2 Million
+- Architecture: Ensemble Model
+  * Swin Transformer Small: 49M params
+  * DeiT Base Distilled: 87M params
+  * ConvNeXt Small: 50M params
+- Total Parameters: ~187 Million
 - Input: 224x224 RGB images
 - Output: 4 classes (tumor types)
+- Model Size: ~750 MB per checkpoint
 
 Training:
 - FL Rounds: 10
 - Local Epochs: 5 per round
 - Total Epochs: 50 (distributed)
-- Batch Size: 32
-- Learning Rate: 0.01
+- Batch Size: 16 (reduced for larger model)
+- Learning Rate: 3e-5 (lower for fine-tuning)
+- Optimizer: AdamW
 
 Performance:
-- Expected Final Accuracy: 90-95%
-- Training Time: ~1-2 hours
-- Network Usage: ~350 MB total
-- Disk Usage: ~100 MB (checkpoints)
+- Expected Final Accuracy: 92-96% (+4-6% over MobileNetV2)
+- Training Time: ~2-4 hours (larger model)
+- Network Usage: ~15 GB total (model transfers)
+- Disk Usage: ~8 GB (10 checkpoints × 750 MB)
+- GPU Memory: 8-12 GB recommended
 
 
 ═══════════════════════════════════════════════════════

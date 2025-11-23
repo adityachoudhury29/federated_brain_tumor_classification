@@ -6,16 +6,19 @@ Your federated learning system is now ready! Here's what was built:
 
 ### Core Files Created:
 
-1. **`model_architecture.py`** - MobileNetV2 model (shared by server & clients)
+1. **`model_architecture.py`** - Ensemble Model: Swin + DeiT + ConvNeXt (shared by server & clients)
 2. **`config.py`** - Configuration file with all parameters
 3. **`fl_server.py`** - Server code (runs on your machine)
 4. **`fl_client.py`** - Client code (runs on remote machines)
-5. **`requirements.txt`** - Python dependencies
+5. **`requirements.txt`** - Python dependencies (includes timm)
 6. **`README.md`** - Complete documentation
 7. **`QUICKSTART.md`** - Quick reference guide
 8. **`DATASET_SETUP.md`** - Dataset setup instructions
 9. **`test_setup.py`** - Setup verification script
 10. **`setup.sh`** - Interactive setup helper
+11. **`MODEL_UPDATE.md`** - Ensemble model update documentation
+12. **`DIAGRAM_MODEL_ARCHITECTURE.md`** - Visual model architecture diagrams
+13. **`DIAGRAM_FL_SYSTEM.md`** - Visual FL system diagrams
 
 ---
 
@@ -26,10 +29,13 @@ Your federated learning system is now ready! Here's what was built:
 │                      YOUR MACHINE (Server)                   │
 │                                                              │
 │  Runs: fl_server.py                                         │
-│  Has: Global MobileNetV2 model                              │
+│  Has: Global Ensemble Model (187M parameters)               │
+│       - Swin Transformer Small (49M params)                 │
+│       - DeiT Base Distilled (87M params)                    │
+│       - ConvNeXt Small (50M params)                         │
 │  Does:                                                       │
 │    - Coordinates federated learning rounds                   │
-│    - Sends model to clients                                  │
+│    - Sends model to clients (~750 MB)                        │
 │    - Receives trained weights from clients                   │
 │    - Aggregates weights using FedAvg                         │
 │    - Evaluates global model                                  │
@@ -101,15 +107,17 @@ NUM_FL_ROUNDS = 10             # How many FL rounds
 NUM_CLIENTS = 3                # Expected number of clients
 MIN_CLIENTS = 2                # Minimum to start training
 
-# Training
+# Training (Optimized for Ensemble Model)
 NUM_LOCAL_EPOCHS = 5           # Epochs per client per round
-BATCH_SIZE = 32
-LEARNING_RATE = 0.01
+BATCH_SIZE = 16                # Reduced for larger model
+LEARNING_RATE = 3e-5           # Lower for fine-tuning
 
 # Datasets
 CLIENT_DATA_DIR = '/home/username/federated_learning_data'  # ← CHANGE on clients
 SERVER_DATA_DIR = '/home/aditya/Desktop/Everything/federated_learning/dataset'
 ```
+
+**Note**: Batch size reduced to 16 to accommodate the 187M parameter ensemble model.
 
 ---
 
@@ -312,9 +320,13 @@ Round 2:
 - **send_weights()**: Sends trained weights to server
 
 ### Model (`model_architecture.py`):
-- **MobileNetV2**: The neural network
-- **InvertedResidual**: Building blocks
+- **EnsembleModel**: The neural network combining three models
+- **Swin Transformer**: Hierarchical vision transformer (49M params)
+- **DeiT**: Data-efficient image transformer (87M params)
+- **ConvNeXt**: Modern ConvNet architecture (50M params)
+- **build_model()**: Factory function to create ensemble
 - Shared by both server and clients
+- **Total**: ~187M parameters, ~750 MB model size
 
 ---
 
@@ -329,12 +341,13 @@ Before running, ensure:
 - [ ] All Python packages installed: `pip install -r requirements.txt`
 
 **Each Client:**
-- [ ] Files copied: model_architecture.py, config.py, fl_client.py
+- [ ] Files copied: model_architecture.py, config.py, fl_client.py, requirements.txt
 - [ ] config.py has correct SERVER_IP (server's IP)
 - [ ] config.py has correct CLIENT_DATA_DIR
 - [ ] Dataset exists at CLIENT_DATA_DIR location
 - [ ] Can ping server: `ping server_ip`
-- [ ] All Python packages installed
+- [ ] All Python packages installed (especially `timm`)
+- [ ] GPU has sufficient memory (8-12 GB recommended) or reduce BATCH_SIZE
 
 **Network:**
 - [ ] All machines on same network

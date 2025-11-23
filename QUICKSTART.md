@@ -105,10 +105,12 @@ Round 2:
 | `NUM_LOCAL_EPOCHS` | 5 | Training epochs per client per round |
 | `NUM_CLIENTS` | 3 | Expected number of clients |
 | `MIN_CLIENTS` | 2 | Minimum clients needed to start |
-| `BATCH_SIZE` | 32 | Batch size for training |
-| `LEARNING_RATE` | 0.01 | Learning rate |
+| `BATCH_SIZE` | 16 | Batch size (reduced for ensemble model) |
+| `LEARNING_RATE` | 3e-5 | Learning rate (lower for fine-tuning) |
 | `SERVER_PORT` | 8080 | Port for communication |
 | `TIMEOUT` | 300 | Connection timeout (seconds) |
+
+**Note**: Model is an Ensemble (Swin + DeiT + ConvNeXt) with ~187M parameters and ~750 MB size.
 
 ---
 
@@ -138,6 +140,11 @@ sudo ufw allow 8080/tcp
 - Check path in `config.py` → `CLIENT_DATA_DIR`
 - Verify folder structure matches expected format
 - Ensure folders are named exactly: `Training`, `Testing`, `glioma_tumor`, etc.
+
+### GPU out of memory:
+- Reduce `BATCH_SIZE` in `config.py` (try 8 or 4)
+- Ensemble model requires 8-12 GB GPU memory
+- Use CPU if needed (slower): Device will auto-select
 
 ---
 
@@ -202,8 +209,9 @@ Training on local data for 5 epochs...
 ## 🚀 Quick Commands
 
 ```bash
-# Install dependencies
+# Install dependencies (IMPORTANT: includes timm for ensemble model)
 pip install -r requirements.txt
+# or: pip install torch torchvision timm numpy scikit-learn matplotlib Pillow
 
 # Find your IP
 hostname -I
@@ -214,8 +222,8 @@ python fl_server.py
 # Start client
 python fl_client.py client_1
 
-# Copy files to client
-scp model_architecture.py config.py fl_client.py user@client_ip:/path/
+# Copy files to client (MUST include updated model_architecture.py)
+scp model_architecture.py config.py fl_client.py requirements.txt user@client_ip:/path/
 
 # Check if server is running
 netstat -tulpn | grep 8080
@@ -224,20 +232,24 @@ netstat -tulpn | grep 8080
 ping server_ip
 ```
 
+**⚠️ CRITICAL**: The `timm` library is required for the ensemble model. First run will download ~350-400 MB of pre-trained weights.
+
 ---
 
 ## 📁 What to Copy to Client Machines
 
 **Minimum required files:**
-1. `model_architecture.py`
+1. `model_architecture.py` ⚠️ **CRITICAL - Updated for Ensemble Model**
 2. `config.py` (edited with correct SERVER_IP and CLIENT_DATA_DIR)
 3. `fl_client.py`
-4. `requirements.txt` (optional, for installing dependencies)
+4. `requirements.txt` (for installing dependencies including timm)
 
 **Do NOT copy:**
 - `dataset/` folder (clients should have their own data)
 - `fl_server.py` (only needed on server)
 - `models/` folder (only on server)
+
+**Important**: The `model_architecture.py` file has been completely rewritten to use an Ensemble Model instead of MobileNetV2. You MUST copy the updated version to all clients.
 
 ---
 
@@ -252,10 +264,12 @@ Before starting training:
 - [ ] Server script is ready: `python fl_server.py`
 
 **Each Client:**
-- [ ] Copied model_architecture.py, config.py, fl_client.py
+- [ ] Copied model_architecture.py (UPDATED version), config.py, fl_client.py
+- [ ] Installed timm library: `pip install timm`
 - [ ] config.py has correct SERVER_IP and CLIENT_DATA_DIR
 - [ ] Dataset is placed in CLIENT_DATA_DIR
 - [ ] Can ping server: `ping server_ip`
+- [ ] Has sufficient GPU memory (8-12 GB) or reduced BATCH_SIZE
 - [ ] Ready to run: `python fl_client.py client_X`
 
 **Network:**

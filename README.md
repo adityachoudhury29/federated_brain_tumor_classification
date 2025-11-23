@@ -1,6 +1,6 @@
 # Federated Learning for Brain Tumor Classification
 
-A federated learning implementation of MobileNetV2 for brain tumor classification using distributed datasets across multiple client machines.
+A federated learning implementation using an **Ensemble Model** (Swin Transformer + DeiT + ConvNeXt) for brain tumor classification using distributed datasets across multiple client machines.
 
 ## 📋 Overview
 
@@ -12,10 +12,20 @@ This system implements **Federated Learning (FL)** where:
 
 ## 🏗️ Architecture
 
+### Model Architecture
+This system uses an **Ensemble Model** combining three state-of-the-art pre-trained models:
+- **Swin Transformer Small** (49M parameters) - Hierarchical vision transformer
+- **DeiT Base Distilled** (87M parameters) - Data-efficient image transformer
+- **ConvNeXt Small** (50M parameters) - Modern ConvNet architecture
+- **Total**: ~187M parameters
+
+The ensemble averages the logits from all three models for robust predictions.
+
+### Federated Learning Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                         FL SERVER                            │
-│  - Manages global MobileNetV2 model                         │
+│  - Manages global Ensemble Model                            │
 │  - Coordinates federated rounds                             │
 │  - Aggregates client weights (FedAvg)                       │
 │  - Evaluates on validation set                              │
@@ -35,7 +45,7 @@ This system implements **Federated Learning (FL)** where:
 
 ```
 federated_learning/
-├── model_architecture.py   # MobileNetV2 model definition
+├── model_architecture.py   # Ensemble Model definition (Swin + DeiT + ConvNeXt)
 ├── config.py              # Configuration parameters
 ├── fl_server.py          # Server-side code
 ├── fl_client.py          # Client-side code
@@ -53,8 +63,10 @@ federated_learning/
 Install required packages on **all machines** (server + clients):
 
 ```bash
-pip install torch torchvision numpy scikit-learn matplotlib
+pip install torch torchvision timm numpy scikit-learn matplotlib Pillow
 ```
+
+**Important**: The `timm` (PyTorch Image Models) library is required for the ensemble model. First run will download ~350-400MB of pre-trained weights.
 
 ### Step 1: Configure Network Settings
 
@@ -126,15 +138,18 @@ Keep your validation dataset in:
 ### Step 3: Copy Required Files to Client Machines
 
 Copy these files to **each client machine**:
-- `model_architecture.py`
+- `model_architecture.py` ⚠️ **CRITICAL - Updated for Ensemble Model**
 - `config.py` (with correct paths)
 - `fl_client.py`
+- `requirements.txt`
 
 You can use `scp`:
 ```bash
 # From server, copy to client
-scp model_architecture.py config.py fl_client.py username@client_ip:/path/to/client/folder/
+scp model_architecture.py config.py fl_client.py requirements.txt username@client_ip:/path/to/client/folder/
 ```
+
+**IMPORTANT**: The `model_architecture.py` file has been completely updated to use the Ensemble Model. You MUST copy this updated file to all client machines.
 
 ## 🚀 Running the Federated Learning System
 
@@ -195,11 +210,13 @@ NUM_FL_ROUNDS = 10        # Number of federated rounds
 NUM_CLIENTS = 3           # Expected number of clients
 MIN_CLIENTS = 2           # Minimum clients to start
 
-# Local Training
+# Local Training (Optimized for Ensemble Model)
 NUM_LOCAL_EPOCHS = 5      # Training epochs per client per round
-BATCH_SIZE = 32
-LEARNING_RATE = 0.01
+BATCH_SIZE = 16           # Reduced for larger model (was 32)
+LEARNING_RATE = 3e-5      # Lower for fine-tuning (was 0.01)
 ```
+
+**Note**: Batch size is reduced to 16 (from 32) to accommodate the larger ensemble model. If you encounter GPU memory issues, reduce to 8 or 4.
 
 ## 📊 Output and Results
 
@@ -238,10 +255,12 @@ Training on local data for 5 epochs...
 
 ### Saved Models:
 Models are saved in `/home/aditya/Desktop/Everything/federated_learning/models/`:
-- `global_model_round_1.pth`
+- `global_model_round_1.pth` (~750 MB each - Ensemble Model)
 - `global_model_round_2.pth`
 - ...
 - `final_global_model.pth`
+
+**Note**: Each checkpoint is ~750 MB due to the ensemble architecture (vs ~9 MB for MobileNetV2).
 
 ## 🔍 Monitoring and Debugging
 
@@ -282,15 +301,24 @@ telnet server_ip 8080
    sudo ufw disable
    ```
 
+**5. "CUDA out of memory"**
+   - Reduce BATCH_SIZE in config.py (try 8 or 4)
+   - The ensemble model requires 8-12 GB GPU memory
+   - Alternatively, use CPU (slower but works)
+
 ## 📈 Federated Learning vs Centralized Training
 
 | Aspect | Centralized (mn-new.py) | Federated (this system) |
 |--------|------------------------|-------------------------|
-| Data Location | All data on one machine | Distributed across clients |
-| Privacy | Data must be shared | Data stays on client machines |
-| Epochs | ~50 model epochs | 10 FL rounds × 5 local epochs |
-| Training Time | Faster (single machine) | Slower (network communication) |
-| Scalability | Limited by single machine | Scales with more clients |
+| **Model** | MobileNetV2 (2.2M params) | Ensemble (187M params) |
+| **Data Location** | All data on one machine | Distributed across clients |
+| **Privacy** | Data must be shared | Data stays on client machines |
+| **Epochs** | ~50 model epochs | 10 FL rounds × 5 local epochs |
+| **Training Time** | Faster (single machine) | Slower (network communication) |
+| **Model Size** | ~9 MB checkpoint | ~750 MB checkpoint |
+| **GPU Memory** | ~2-3 GB | ~8-12 GB |
+| **Scalability** | Limited by single machine | Scales with more clients |
+| **Expected Accuracy** | ~88-92% | ~92-96% (4-6% improvement) |
 
 ## 🔒 Privacy Benefits
 
@@ -302,17 +330,22 @@ telnet server_ip 8080
 ## 🎯 Next Steps
 
 1. **Test with more clients**: Add more machines to the network
-2. **Experiment with parameters**: Try different FL rounds, local epochs
-3. **Add differential privacy**: Implement noise addition for stronger privacy
-4. **Implement client selection**: Randomly select subset of clients per round
-5. **Add evaluation metrics**: Implement confusion matrix on server
+2. **Experiment with parameters**: Try different FL rounds, local epochs, batch sizes
+3. **Monitor performance**: Compare ensemble vs individual model performance
+4. **Add differential privacy**: Implement noise addition for stronger privacy
+5. **Implement client selection**: Randomly select subset of clients per round
+6. **Add evaluation metrics**: Implement confusion matrix and per-class accuracy
+7. **Optimize model**: Consider model pruning or quantization to reduce size
 
 ## 📝 Notes
 
 - **FL Round ≠ Model Epoch**: One FL round contains multiple local training epochs
-- **Network Speed**: Training speed depends on network bandwidth
+- **Network Speed**: Training speed depends on network bandwidth (model is ~750 MB)
 - **Synchronous FL**: All clients must participate in each round
 - **IID Assumption**: This implementation assumes similar data distribution across clients
+- **Ensemble Model**: Uses Swin Transformer + DeiT + ConvNeXt for state-of-the-art accuracy
+- **GPU Requirements**: Recommended 12+ GB GPU memory, reduce batch size if needed
+- **First Run**: Will download ~350-400 MB of pre-trained weights from timm library
 
 ## 🆘 Support
 
@@ -323,7 +356,15 @@ If you encounter issues:
 4. Check firewall settings
 5. Review logs for error messages
 
+## 🔬 Model Architecture Details
+
+For detailed visual diagrams of the model architecture and FL system, see:
+- `DIAGRAM_MODEL_ARCHITECTURE.md` - Comprehensive ensemble model diagrams
+- `DIAGRAM_FL_SYSTEM.md` - Complete federated learning system architecture
+- `HOW_TO_VIEW_DIAGRAMS.md` - Instructions for viewing Mermaid diagrams
+
 ---
 
 **Author**: Federated Learning Implementation for Brain Tumor Classification  
-**Date**: October 26, 2025
+**Date**: October 26, 2025  
+**Model Update**: November 22, 2025 - Upgraded to Ensemble Model
